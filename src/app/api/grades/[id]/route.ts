@@ -14,12 +14,13 @@ const schema = z.object({
   comment: z.string().nullable().optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as any).id as string;
 
-  const existing = await prisma.grade.findFirst({ where: { id: params.id, userId } });
+  const existing = await prisma.grade.findFirst({ where: { id: id, userId } });
   if (!existing) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
@@ -32,7 +33,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const maxValue = data.maxValue ?? existing.maxValue;
 
   const grade = await prisma.grade.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       ...data,
       date: data.date ? new Date(data.date) : undefined,
@@ -43,12 +44,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json(grade);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as any).id as string;
 
-  const result = await prisma.grade.deleteMany({ where: { id: params.id, userId } });
+  const result = await prisma.grade.deleteMany({ where: { id: id, userId } });
   if (result.count === 0) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   return NextResponse.json({ ok: true });

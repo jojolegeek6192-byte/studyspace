@@ -11,7 +11,8 @@ const schema = z.object({
   room: z.string().nullable().optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as any).id as string;
@@ -23,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // updateMany avec userId dans le where : impossible de modifier la matière d'un autre utilisateur
   const result = await prisma.subject.updateMany({
-    where: { id: params.id, userId },
+    where: { id: id, userId },
     data: parsed.data,
   });
   if (result.count === 0) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
@@ -31,12 +32,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   const userId = (session.user as any).id as string;
 
-  const result = await prisma.subject.deleteMany({ where: { id: params.id, userId } });
+  const result = await prisma.subject.deleteMany({ where: { id: id, userId } });
   if (result.count === 0) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   return NextResponse.json({ ok: true });
