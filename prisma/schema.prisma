@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// ─── Auth / Utilisateur ─────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String    @unique
+  passwordHash    String
+  level           String?   // "3e", "Terminale", "BUT", ...
+  yearStructure   String    @default("trimestres") // "trimestres" | "semestres"
+  weightedAverage Boolean   @default(true)
+  accentColor     String    @default("#6366f1")
+  theme           String    @default("system") // "light" | "dark" | "system"
+  onboarded       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  subjects      Subject[]
+  grades        Grade[]
+  homework      Homework[]
+  scheduleItems ScheduleItem[]
+  notifications Notification[]
+  goals         Goal[]
+  notifPrefs    NotificationPreference?
+}
+
+// ─── Matières ───────────────────────────────────────
+
+model Subject {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String   @default("#6366f1")
+  icon      String   @default("book")
+  teacher   String?
+  room      String?
+  createdAt DateTime @default(now())
+
+  grades    Grade[]
+  homework  Homework[]
+  schedule  ScheduleItem[]
+  goals     Goal[]
+
+  @@index([userId])
+}
+
+// ─── Notes ──────────────────────────────────────────
+
+model Grade {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId    String
+  subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  value        Float
+  maxValue     Float    @default(20)
+  normalizedOn20 Float  // valeur convertie automatiquement sur 20
+  coefficient  Float    @default(1)
+  type         String   @default("Contrôle") // Contrôle, Interrogation, DM, Oral, Projet, TP, Participation, Autre
+  date         DateTime @default(now())
+  period       String   // "T1", "T2", "T3" ou "S1", "S2"
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([subjectId])
+}
+
+// ─── Cahier de texte / devoirs ──────────────────────
+
+model Homework {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  type        String   @default("Devoir") // Devoir, Évaluation, Leçon, Révision, Projet, Oral, TP, Autre
+  dueDate     DateTime
+  dueTime     String?
+  priority    String   @default("normal") // normal, important, urgent
+  status      String   @default("todo")   // todo, in_progress, done
+  createdAt   DateTime @default(now())
+
+  tasks HomeworkTask[]
+
+  @@index([userId])
+  @@index([subjectId])
+}
+
+model HomeworkTask {
+  id         String   @id @default(cuid())
+  homeworkId String
+  homework   Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  title      String
+  completed  Boolean  @default(false)
+  order      Int      @default(0)
+}
+
+// ─── Emploi du temps ────────────────────────────────
+
+model ScheduleItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  day       Int      // 0 = lundi ... 6 = dimanche
+  startTime String   // "08:00"
+  endTime   String   // "09:00"
+  teacher   String?
+  room      String?
+  weekType  String   @default("all") // "all" | "A" | "B"
+
+  @@index([userId])
+}
+
+// ─── Objectifs ──────────────────────────────────────
+
+model Goal {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId String?  // null = objectif général
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  target    Float
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── Notifications ──────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "homework", "grade", "schedule"
+  title     String
+  body      String?
+  date      DateTime @default(now())
+  read      Boolean  @default(false)
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  homework       Boolean @default(true)
+  evaluations    Boolean @default(true)
+  courses        Boolean @default(false)
+  overdueTasks   Boolean @default(true)
+  leadTime       String  @default("1d") // "1w" | "3d" | "1d" | "1h"
+}
